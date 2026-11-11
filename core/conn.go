@@ -14,7 +14,9 @@ type TCPConn interface {
 	// Sent will be called when sent data has been acknowledged by peer.
 	Sent(len uint16) error
 
-	// Receive will be called when data arrives from TUN.
+	// Receive copies borrowed TUN input into a queue bounded by TCP_WND.
+	// It does not wait for a reader or capacity. On a full result, the native
+	// callback retains its pbuf for lwIP to retry instead of freeing it.
 	Receive(data []byte) error
 
 	// Err will be called when a fatal error has occurred on the connection.
@@ -34,10 +36,9 @@ type TCPConn interface {
 	// LocalAddr returns the local client network address.
 	LocalAddr() net.Addr
 
-	// Read reads data comming from TUN, note that it reads from an
-	// underlying pipe that the writer writes in the lwip thread,
-	// write op blocks until previous written data is consumed, one
-	// should read out all data as soon as possible.
+	// Read reads data coming from TUN. When there is no data, Read waits.
+	// lwIP does not wait for the reader: when the receive window fills, TCP
+	// flow control pauses the peer until Read returns window credit.
 	Read(data []byte) (int, error)
 
 	// Write writes data to TUN.
